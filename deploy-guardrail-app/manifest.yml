@@ -1,4 +1,9 @@
 modules:
+  jira:workflowValidator:
+    - key: deploy-guardrail-validator
+      function: validateDeployment
+      name: Deploy Guardrail Validator
+      description: Blocks deployment if risk score is too high.
   jira:issuePanel:
     - key: deploy-guardrail-app-hello-world-panel
       resource: main
@@ -10,12 +15,15 @@ modules:
   function:
     - key: resolver
       handler: index.handler
+    - key: validateDeployment
+      handler: index.validateDeployment
 resources:
   - key: main
     path: static/hello-world/build
 permissions:
   scopes:
     - read:jira-work
+    - storage:app
 app:
   runtime:
     name: nodejs22.x
