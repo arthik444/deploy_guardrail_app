@@ -1,0 +1,25 @@
+modules:
+  trigger:
+    - key: pitcrew-incident-trigger
+      function: main
+      events:
+        - avi:jira:created:issue
+      filter:
+        ignoreSelf: true
+        expression: event.issue.fields.summary != null
+  function:
+    - key: main
+      handler: index.run
+permissions:
+  scopes:
+    - read:jira-work
+    - write:jira-work
+    - read:page:confluence
+    - write:page:confluence
+    - read:space:confluence
+app:
+  runtime:
+    name: nodejs22.x
+    memoryMB: 256
+    architecture: arm64
+  id: ari:cloud:ecosystem::app/57b8c698-a97a-4a47-95a1-40d2fd60f2a0

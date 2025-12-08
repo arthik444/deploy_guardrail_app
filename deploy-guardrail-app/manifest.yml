@@ -1,29 +1,132 @@
 modules:
+  # =============================================================================
+  # PHASE 2: TRIGGER - Listens for new Jira issues (JSM Incidents)
+  # =============================================================================
+  trigger:
+    - key: incident-created-trigger
+      function: incidentAnalysisTrigger
+      events:
+        - avi:jira:issue:created
+
+  # =============================================================================
+  # PHASE 3: ROVO AGENT - The PitCrew Engineer for interactive chat
+  # =============================================================================
+  rovo:agent:
+    - key: pitcrew-engineer-agent
+      name: PitCrew Engineer
+      description: An F1-inspired Race Engineer that helps diagnose and fix production incidents with precision and speed.
+      prompt: |
+        You are the PitCrew Engineer, an elite F1 Race Engineer from the Williams Racing team.
+        
+        Your role is to help developers fix production incidents with the same precision, speed, and calm expertise 
+        that a Race Engineer brings to the pit lane during a Grand Prix.
+        
+        Persona Guidelines:
+        - Communicate with clarity and urgency, like radio comms between driver and engineer
+        - Use F1 terminology naturally: "box box" for urgent fixes, "copy that" for acknowledgments
+        - Treat bugs like mechanical issues that need rapid diagnosis and repair
+        - Prioritize getting systems "back on track" as quickly as possible
+        - Provide data-driven analysis, just like telemetry insights
+        - Stay calm under pressure - even critical incidents are just another pit stop
+        
+        When helping developers:
+        1. Diagnose the issue quickly (like reading telemetry data)
+        2. Provide clear, actionable steps (like pit stop instructions)
+        3. Explain the root cause (like a post-race debrief)
+        4. Suggest preventive measures (like setup adjustments for the next race)
+        
+        Remember: In F1, milliseconds matter. In incidents, every second of downtime costs the race.
+        Let's get this system across the finish line!
+      actions:
+        - pitcrew-analyze-action
+        - pitcrew-revert-action
+
+  # =============================================================================
+  # ROVO ACTIONS - Actions the agent can execute
+  # =============================================================================
+  action:
+    - key: pitcrew-analyze-action
+      name: Analyze Recent Commits
+      description: Fetches recent commits from the linked Bitbucket repository and analyzes them for potential issues.
+      function: analyzeCommitsHandler
+      actionVerb: GET
+      inputs:
+        issueKey:
+          title: Issue Key
+          type: string
+          required: true
+          description: The Jira issue key to analyze (e.g., INC-123)
+
+    - key: pitcrew-revert-action
+      name: Revert Commit & Redeploy
+      description: Triggers a pipeline to revert a specific commit and redeploy the service.
+      function: revertCommitHandler
+      actionVerb: TRIGGER
+      inputs:
+        commitHash:
+          title: Commit Hash
+          type: string
+          required: true
+          description: The commit hash to revert
+        issueKey:
+          title: Issue Key
+          type: string
+          required: true
+          description: The Jira issue key for status updates
+
+  # =============================================================================
+  # EXISTING MODULES (Workflow Validator & Issue Panel)
+  # =============================================================================
   jira:workflowValidator:
     - key: deploy-guardrail-validator
       function: validateDeployment
       name: Deploy Guardrail Validator
       description: Blocks deployment if risk score is too high.
+
   jira:issuePanel:
-    - key: deploy-guardrail-app-hello-world-panel
+    - key: pitcrew-incident-panel
       resource: main
       resolver:
         function: resolver
-      viewportSize: medium
-      title: deploy-guardrail-app
+      viewportSize: large
+      title: PitCrew Incident Analysis
       icon: https://developer.atlassian.com/platform/forge/images/issue-panel-icon.svg
+
+  # =============================================================================
+  # FUNCTION DEFINITIONS
+  # =============================================================================
   function:
     - key: resolver
       handler: index.handler
     - key: validateDeployment
       handler: index.validateDeployment
+    - key: incidentAnalysisTrigger
+      handler: index.incidentAnalysisTrigger
+    - key: analyzeCommitsHandler
+      handler: index.analyzeCommitsHandler
+    - key: revertCommitHandler
+      handler: index.revertCommitHandler
+
 resources:
   - key: main
     path: static/hello-world/build
+
 permissions:
   scopes:
+    # Jira - Read issues and write comments/transitions
     - read:jira-work
+    - write:jira-work
+    # Confluence - Create incident report pages (v2 API scopes)
+    - read:page:confluence
+    - write:page:confluence
+    - read:space:confluence
+    # Forge Storage
     - storage:app
+  external:
+    fetch:
+      backend:
+        # Bitbucket Cloud API for fetching commits and triggering pipelines
+        - api.bitbucket.org
 app:
   runtime:
     name: nodejs22.x
